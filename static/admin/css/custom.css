@@ -1,0 +1,108 @@
+:root {
+    --kartof-ink: #1f1a17;
+    --kartof-yellow: #f59e0b;
+    --kartof-red: #dc2626;
+    --kartof-cream: #fffdf7;
+}
+
+body {
+    background: #f7f3e8;
+    color: var(--kartof-ink);
+    font-family: "DM Sans", Arial, sans-serif;
+    font-size: 14px;
+}
+
+#header {
+    height: 82px;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    background: var(--kartof-ink);
+    color: white;
+    border-bottom: 5px solid var(--kartof-yellow);
+}
+
+#branding { height: auto; }
+.kartof-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.kartof-brand-mark {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 2px solid var(--kartof-yellow);
+    border-radius: 50%;
+    color: var(--kartof-yellow);
+    font-size: 23px;
+}
+.kartof-brand strong {
+    display: block;
+    color: white;
+    font-size: 21px;
+}
+.kartof-brand small {
+    display: block;
+    margin-top: 3px;
+    color: #e4dccf;
+    font-size: 9px;
+    letter-spacing: 1.6px;
+}
+
+#user-tools { color: #e4dccf; }
+#user-tools a { color: var(--kartof-yellow); }
+.breadcrumbs {
+    background: var(--kartof-cream);
+    color: #5f574f;
+    border-bottom: 1px solid #e7dfd1;
+}
+.module h2,
+.module caption,
+.inline-group h2 {
+    background: var(--kartof-ink);
+    color: white;
+}
+.button,
+input[type="submit"],
+input[type="button"],
+.submit-row input {
+    background: var(--kartof-red);
+    border: 0;
+    border-radius: 999px;
+    color: white;
+    font-weight: 700;
+}
+.button.default,
+input.default {
+    background: var(--kartof-red);
+}
+.object-tools a {
+    background: var(--kartof-yellow);
+    color: var(--kartof-ink);
+    border-radius: 999px;
+}
+#changelist table thead th {
+    background: var(--kartof-ink);
+    color: white;
+}
+#changelist table tbody tr:hover {
+    background: #fff7df;
+}
+.form-row {
+    color: var(--kartof-ink);
+}
+.form-row label {
+    color: var(--kartof-ink);
+    font-weight: 700;
+}
+.form-row input,
+.form-row textarea,
+.form-row select,
+.vTextField,
+.vLargeTextField {
+    color: var(--kartof-ink);
+    background: white;
+    border: 1px solid #bdb5a8;
+}

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>КартофЪ Асеновград</title>
+    {% load static %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=2">
+</head>
+<body>
+    <header class="header">
+        <a class="brand" href="/" aria-label="КартофЪ - Асеновград начало">
+            <span class="brand-mark" aria-hidden="true">К</span>
+            <span class="brand-copy">
+                <span class="brand-name">{{ site.brand_name|default:"КартофЪ" }}</span>
+                <span class="brand-location">{{ site.brand_location|default:"Асеновград" }}</span>
+            </span>
+        </a>
+        <nav class="nav" aria-label="Основна навигация">
+            <a class="active" href="/">Начало</a>
+            <a href="#menu">Меню</a>
+            <a href="#about">За нас</a>
+            <a href="#footer">Контакти</a>
+            {% if user.is_authenticated and user.is_superuser %}
+            <a href="{% url 'admin:index' %}">Админ панел</a>
+            {% endif %}
+        </nav>
+        <button class="cart-button" type="button" aria-label="Отвори количката">
+            <span>Количка</span>
+            <span class="cart-count">0</span>
+        </button>
+        <button class="menu-toggle" type="button" aria-label="Отвори меню"><span></span><span></span></button>
+    </header>
+
+    <main>
+        <section class="hero"{% if site.hero_image %} style="background-image:linear-gradient(rgba(31,26,23,.62),rgba(31,26,23,.72)),url('{{ site.hero_image.url }}');"{% endif %}>
+            <div class="hero-copy">
+                <p class="hero-kicker">{{ site.hero_kicker }}</p>
+                <h1>{{ site.hero_title }}</h1>
+                <p class="hero-text">{{ site.hero_text }}</p>
+                <a class="primary-button" href="#menu">{{ site.hero_button_text }}</a>
+            </div>
+        </section>
+
+        <section class="menu-section" id="menu">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow dark"><span></span> {{ site.menu_kicker }}</p>
+                    <h2>{{ site.menu_title }}</h2>
+                </div>
+                <div class="category-tabs" role="tablist">
+                    {% for collection in collections %}
+                    <button class="tab{% if forloop.first %} active{% endif %}" data-category="{{ collection.slug }}" type="button">{{ collection.name }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="menu-grid">
+                {% for product in products %}
+                <article class="menu-card" data-category="{{ product.collection.slug }}">
+                    <div class="card-image">
+                        {% if product.is_featured %}<span class="badge">ХИТ</span>{% endif %}
+                        {% if product.image %}
+                            <img class="product-image" src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy">
+                        {% else %}
+                            <img class="product-image" src="{% static 'images/potato-loaded.svg' %}" alt="{{ product.name }}" loading="lazy">
+                        {% endif %}
+                    </div>
+                    <div class="card-info">
+                        <p class="card-kicker">{{ product.collection.name }}</p>
+                        <h3>{{ product.name }}</h3>
+                        <p>{{ product.description }}</p>
+                        <div class="card-bottom">
+                            {% if product.price %}
+                                <strong>{{ product.price|floatformat:2 }} €</strong>
+                            {% else %}
+                                <strong>По меню</strong>
+                            {% endif %}
+                            <button class="add-button" type="button"
+                                    data-name="{{ product.name }}"
+                                    data-price="{% if product.price %}{{ product.price }}{% else %}0{% endif %}"
+                                    aria-label="Добави {{ product.name }}">+</button>
+                        </div>
+                    </div>
+                </article>
+                {% empty %}
+                <p class="products-empty">Все още няма добавени продукти в админ панела.</p>
+                {% endfor %}
+
+                {% if not products %}
+                <article class="menu-card featured" data-category="potato">
+                    <div class="card-image potato-image">
+                        <span class="badge">ХИТ</span>
+                        <div class="mini-potato"><i></i><b></b></div>
+                    </div>
+                    <div class="card-info">
+                        <p class="card-kicker">Пълнен картоф</p>
+                        <h3>Мистър Спешъл Бийф</h3>
+                        <p>Масло, кашкавал, дърпано телешко, маринован лук, царевица, халапеньо, чедър и салата по избор.</p>
+                        <div class="card-bottom"><strong>7.00 €</strong><button class="add-button" type="button" data-name="Мистър Спешъл Бийф" data-price="7.00" aria-label="Добави Мистър Спешъл Бийф">+</button></div>
+                    </div>
+                </article>
+
+                <article class="menu-card" data-category="potato">
+                    <div class="card-image mushroom-image">
+                        <div class="mini-potato"><i></i><b></b></div>
+                    </div>
+                    <div class="card-info">
+                        <p class="card-kicker">Пълнен картоф</p>
+                        <h3>Чикън Фентъзи</h3>
+                        <p>Масло, кашкавал, печено пилешко филе, царевица, маслини, каперси и салата по избор.</p>
+                        <div class="card-bottom"><strong>6.50 €</strong><button class="add-button" type="button" data-name="Чикън Фентъзи" data-price="6.50" aria-label="Добави Чикън Фентъзи">+</button></div>
+                    </div>
+                </article>
+
+                <article class="menu-card" data-category="sandwich">
+                    <div class="card-image sandwich-image">
+                        <div class="sandwich-art"><span></span><i></i><b></b></div>
+                    </div>
+                    <div class="card-info">
+                        <p class="card-kicker">Сандвич</p>
+                        <h3>Пеперони и кашкавал</h3>
+                        <p>Зеленчук и сос по избор.</p>
+                        <div class="card-bottom"><strong>По меню</strong><button class="add-button" type="button" data-name="Сандвич — пеперони и кашкавал" data-price="0" aria-label="Добави пеперони и кашкавал">+</button></div>
+                    </div>
+                </article>
+
+                <article class="menu-card" data-category="other">
+                    <div class="card-image soup-image">
+                        <div class="bowl"><span></span></div>
+                    </div>
+                    <div class="card-info">
+                        <p class="card-kicker">Супа</p>
+                        <h3>Картофена крем супа</h3>
+                        <p>Със сирене и крутони.</p>
+                        <div class="card-bottom"><strong>2.50 €</strong><button class="add-button" type="button" data-name="Картофена крем супа" data-price="2.50" aria-label="Добави Картофена крем супа">+</button></div>
+                    </div>
+                </article>
+
+                <article class="menu-card" data-category="other">
+                    <div class="card-image princess-image"><span class="badge">НОВО</span><div class="french-fries"></div></div>
+                    <div class="card-info">
+                        <p class="card-kicker">Принцеси</p>
+                        <h3>Кайма и кашкавал</h3>
+                        <p>Класическа принцеса с кайма и кашкавал.</p>
+                        <div class="card-bottom"><strong>По меню</strong><button class="add-button" type="button" data-name="Принцеса — кайма и кашкавал" data-price="0" aria-label="Добави принцеса с кайма">+</button></div>
+                    </div>
+                </article>
+
+                <article class="menu-card" data-category="other">
+                    <div class="card-image hotdog-image"><div class="hotdog-art"></div></div>
+                    <div class="card-info">
+                        <p class="card-kicker">Хот дог</p>
+                        <h3>Американски хот дог</h3>
+                        <p>Сочен кренвирш, вкусен сос, пресни добавки и лук.</p>
+                        <div class="card-bottom"><strong>2.50 €</strong><button class="add-button" type="button" data-name="Американски хот дог" data-price="2.50" aria-label="Добави Американски хот дог">+</button></div>
+                    </div>
+                </article>
+
+                <article class="menu-card" data-category="other">
+                    <div class="card-image potato-image"><div class="mini-potato"><i></i><b></b></div></div>
+                    <div class="card-info">
+                        <p class="card-kicker">Комбо меню</p>
+                        <h3>Комбо меню</h3>
+                        <p>Крилца, хапки, лучени кръгчета, чили чийз хапки, картофки и Coca-Cola.</p>
+                        <div class="card-bottom"><strong>8.00 €</strong><button class="add-button" type="button" data-name="Комбо меню" data-price="8.00" aria-label="Добави Комбо меню">+</button></div>
+                    </div>
+                </article>
+
+                <article class="menu-card" data-category="potato"><div class="card-image potato-image"><div class="mini-potato"><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Пълнен картоф</p><h3>Мега Суит Порки</h3><p>Дърпано свинско, кисели краставички, гъби и червен боб.</p><div class="card-bottom"><strong>7.00 €</strong><button class="add-button" type="button" data-name="Мега Суит Порки" data-price="7.00">+</button></div></div></article>
+                <article class="menu-card" data-category="potato"><div class="card-image mushroom-image"><div class="mini-potato"><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Пълнен картоф</p><h3>Мистър Бейкън</h3><p>Краве сирене, свински бекон, краставички, маслини и халапеньо.</p><div class="card-bottom"><strong>6.50 €</strong><button class="add-button" type="button" data-name="Мистър Бейкън" data-price="6.50">+</button></div></div></article>
+                <article class="menu-card" data-category="potato"><div class="card-image potato-image"><div class="mini-potato"><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Пълнен картоф</p><h3>Мистър Биг Фитнес</h3><p>Пилешко филе, пушена шунка, краставички, нахут, гъби, маслини и каперси.</p><div class="card-bottom"><strong>7.00 €</strong><button class="add-button" type="button" data-name="Мистър Биг Фитнес" data-price="7.00">+</button></div></div></article>
+                <article class="menu-card" data-category="potato"><div class="card-image mushroom-image"><div class="mini-potato"><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Пълнен картоф</p><h3>Мистър Вегетариан</h3><p>Маслини, гъби, царевица, нахут, червен боб, краве сирене и каперси.</p><div class="card-bottom"><strong>6.50 €</strong><button class="add-button" type="button" data-name="Мистър Вегетариан" data-price="6.50">+</button></div></div></article>
+                <article class="menu-card" data-category="potato"><div class="card-image potato-image"><div class="mini-potato"><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Пълнен картоф</p><h3>Шеф Картоф</h3><p>Сирена, царевица, сушени домати, луканка, пилешко филе и бекон.</p><div class="card-bottom"><strong>7.00 €</strong><button class="add-button" type="button" data-name="Шеф Картоф" data-price="7.00">+</button></div></div></article>
+                <article class="menu-card" data-category="potato"><div class="card-image potato-image"><div class="mini-potato"><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Пълнен картоф</p><h3>4 вида сирена</h3><p>Кашкавал, моцарела, чедър и синьо сирене.</p><div class="card-bottom"><strong>6.50 €</strong><button class="add-button" type="button" data-name="4 вида сирена картоф" data-price="6.50">+</button></div></div></article>
+                <article class="menu-card" data-category="potato"><div class="card-image mushroom-image"><span class="badge">НОВО</span><div class="mini-potato"><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Пълнен картоф</p><h3>Картоф Истанбул</h3><p>Турски суджук, двойна доза кашкавал, яйце и чесново масълце.</p><div class="card-bottom"><strong>8.00 €</strong><button class="add-button" type="button" data-name="Картоф Истанбул" data-price="8.00">+</button></div></div></article>
+
+                <article class="menu-card" data-category="sandwich"><div class="card-image sandwich-image"><div class="sandwich-art"><span></span><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Сандвич</p><h3>Бекон и топено сирене</h3><p>Зеленчук и сос по избор.</p><div class="card-bottom"><strong>По меню</strong><button class="add-button" type="button" data-name="Сандвич — бекон и топено сирене" data-price="0">+</button></div></div></article>
+                <article class="menu-card" data-category="sandwich"><div class="card-image sandwich-image"><div class="sandwich-art"><span></span><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Сандвич</p><h3>Прошуто и моцарела</h3><p>Зеленчук и сос по избор.</p><div class="card-bottom"><strong>По меню</strong><button class="add-button" type="button" data-name="Сандвич — прошуто и моцарела" data-price="0">+</button></div></div></article>
+                <article class="menu-card" data-category="sandwich"><div class="card-image sandwich-image"><div class="sandwich-art"><span></span><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Сандвич</p><h3>Шунка и кашкавал</h3><p>Зеленчук и сос по избор.</p><div class="card-bottom"><strong>По меню</strong><button class="add-button" type="button" data-name="Сандвич — шунка и кашкавал" data-price="0">+</button></div></div></article>
+                <article class="menu-card" data-category="sandwich"><div class="card-image sandwich-image"><div class="sandwich-art"><span></span><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Сандвич</p><h3>Кашкавал и сирена</h3><p>Кашкавал, топено сирене и моцарела.</p><div class="card-bottom"><strong>По меню</strong><button class="add-button" type="button" data-name="Сандвич — кашкавал и сирена" data-price="0">+</button></div></div></article>
+                <article class="menu-card" data-category="sandwich"><div class="card-image sandwich-image"><div class="sandwich-art"><span></span><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Сандвич</p><h3>Направи си сам</h3><p>Избор на съставки по желание.</p><div class="card-bottom"><strong>По меню</strong><button class="add-button" type="button" data-name="Сандвич — направи си сам" data-price="0">+</button></div></div></article>
+
+                <article class="menu-card" data-category="other"><div class="card-image princess-image"><div class="french-fries"></div></div><div class="card-info"><p class="card-kicker">Принцеса</p><h3>Шунка и кашкавал</h3><p>Класическа принцеса с шунка и кашкавал.</p><div class="card-bottom"><strong>По меню</strong><button class="add-button" type="button" data-name="Принцеса — шунка и кашкавал" data-price="0">+</button></div></div></article>
+                <article class="menu-card" data-category="other"><div class="card-image princess-image"><div class="french-fries"></div></div><div class="card-info"><p class="card-kicker">Принцеса</p><h3>Кашкавал</h3><p>Класическа принцеса с кашкавал.</p><div class="card-bottom"><strong>По меню</strong><button class="add-button" type="button" data-name="Принцеса — кашкавал" data-price="0">+</button></div></div></article>
+
+                <article class="menu-card" data-category="other"><div class="card-image potato-image"><div class="mini-potato"><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Изкушение</p><h3>Крилца + картофки</h3><p>Пилешки крилца с картофки.</p><div class="card-bottom"><strong>5.50 €</strong><button class="add-button" type="button" data-name="Пилешки крилца + картофки" data-price="5.50">+</button></div></div></article>
+                <article class="menu-card" data-category="other"><div class="card-image potato-image"><div class="mini-potato"><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Изкушение</p><h3>Хапки + картофки</h3><p>Пилешки хапки с картофки.</p><div class="card-bottom"><strong>5.50 €</strong><button class="add-button" type="button" data-name="Пилешки хапки + картофки" data-price="5.50">+</button></div></div></article>
+                <article class="menu-card" data-category="other"><div class="card-image hotdog-image"><div class="hotdog-art"></div></div><div class="card-info"><p class="card-kicker">Изкушение</p><h3>Пилешки хапки</h3><p>Хрупкави пилешки хапки.</p><div class="card-bottom"><strong>4.00 €</strong><button class="add-button" type="button" data-name="Пилешки хапки" data-price="4.00">+</button></div></div></article>
+                <article class="menu-card" data-category="other"><div class="card-image hotdog-image"><div class="hotdog-art"></div></div><div class="card-info"><p class="card-kicker">Изкушение</p><h3>Пилешки крилца</h3><p>Хрупкави пилешки крилца.</p><div class="card-bottom"><strong>4.00 €</strong><button class="add-button" type="button" data-name="Пилешки крилца" data-price="4.00">+</button></div></div></article>
+                <article class="menu-card" data-category="other"><div class="card-image princess-image"><div class="french-fries"></div></div><div class="card-info"><p class="card-kicker">Изкушение</p><h3>Лучени кръгчета</h3><p>Хрупкави лучени кръгчета.</p><div class="card-bottom"><strong>2.50 €</strong><button class="add-button" type="button" data-name="Лучени кръгчета" data-price="2.50">+</button></div></div></article>
+                <article class="menu-card" data-category="other"><div class="card-image princess-image"><div class="french-fries"></div></div><div class="card-info"><p class="card-kicker">Изкушение</p><h3>Чили чийз хапки</h3><p>Хапки със сирене и чили вкус.</p><div class="card-bottom"><strong>3.50 €</strong><button class="add-button" type="button" data-name="Чили чийз хапки" data-price="3.50">+</button></div></div></article>
+                <article class="menu-card" data-category="other"><div class="card-image potato-image"><div class="mini-potato"><i></i><b></b></div></div><div class="card-info"><p class="card-kicker">Изкушение</p><h3>Картофки бокс</h3><p>С разтопен чедър и пармезан.</p><div class="card-bottom"><strong>3.50 €</strong><button class="add-button" type="button" data-name="Картофки бокс" data-price="3.50">+</button></div></div></article>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="builder-section" id="builder">
+            <div class="builder-heading">
+                <div>
+                    <p class="eyebrow dark"><span></span> {{ site.builder_kicker }}</p>
+                    <h2>{{ site.builder_title }}</h2>
+                </div>
+                <p>{{ site.builder_text }}</p>
+            </div>
+
+            <div class="potato-builder">
+                <form class="builder-options">
+                    <fieldset>
+                        <legend><span>01</span> Избери брой добавки</legend>
+                        <div class="option-grid size-options">
+                            {% for size in builder_sizes %}
+                            <label><input type="radio" name="size" value="{{ size.name }}" data-count="{{ size.topping_count }}" data-price="{{ size.price }}" {% if forloop.first %}checked{% endif %}><span><strong>{{ size.name }}</strong><small>{{ size.price|floatformat:2 }} €</small></span></label>
+                            {% empty %}
+                            <p>Все още няма добавени размери в админ панела.</p>
+                            {% endfor %}
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend><span>02</span> Избери основа за картофа</legend>
+                        <div class="option-grid base-options">
+                            <label><input type="radio" name="base" value="класически печен картоф" data-price="0" checked><span><strong>Класически печен</strong><small>Мек отвътре</small></span></label>
+                            <label><input type="radio" name="base" value="голям печен картоф" data-price="1.50"><span><strong>Голям печен</strong><small>+1.50 €</small></span></label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend><span>03</span> Добави пълнежи</legend>
+                        <div class="option-grid topping-options">
+                            {% for topping in builder_toppings %}
+                            <label><input type="checkbox" value="{{ topping.name }}" data-price="{{ topping.extra_price }}"><span><strong>{{ topping.name }}</strong>{% if topping.extra_price %}<small>+{{ topping.extra_price|floatformat:2 }} €</small>{% endif %}</span></label>
+                            {% empty %}
+                            <p>Все още няма добавени пълнежи в админ панела.</p>
+                            {% endfor %}
+                        </div>
+                    </fieldset>
+
+                    <div class="builder-summary">
+                        <div>
+                            <span>Цена за картофа</span>
+                            <strong class="builder-price">6.00 €</strong>
+                        </div>
+                        <button class="builder-add" type="button">Добави към поръчката <span>+</span></button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+    </main>
+
+    <section class="about-section" id="about">
+        <div>
+            <p class="eyebrow dark"><span></span> За нас</p>
+            <h2>{{ site.about_title }}</h2>
+        </div>
+        <p>{{ site.about_text }}</p>
+    </section>
+
+    <footer class="footer" id="footer">
+        <div class="footer-main">
+            <div class="footer-brand-column">
+                <a class="brand footer-brand" href="/">
+                    <span class="footer-brand-name">{{ site.brand_name }}</span>
+                    <span class="brand-location">{{ site.brand_location }}</span>
+                </a>
+                <p>{{ site.footer_text }}</p>
+                <div class="footer-hours">
+                    <p><span>Понеделник – Петък</span><strong>{{ site.weekday_hours }}</strong></p>
+                    <p><span>Събота – Неделя</span><strong>{{ site.weekend_hours }}</strong></p>
+                </div>
+            </div>
+
+            <nav class="footer-column" aria-label="Навигация във футъра">
+                <h3>Бързи връзки</h3>
+                <a href="#menu">Меню</a>
+                <a href="#builder">Направи си картоф</a>
+                <a href="#about">За нас</a>
+            </nav>
+
+            <div class="footer-column footer-contact">
+                <h3>Контакти</h3>
+                <a class="footer-phone" href="tel:{{ site.phone }}">{{ site.phone }}</a>
+                <address>{{ site.address }}{% if site.second_address %}<br>{{ site.second_address }}{% endif %}</address>
+                <div class="socials" aria-label="Социални мрежи">
+                    {% if site.instagram_url %}<a href="{{ site.instagram_url }}" target="_blank" rel="noopener" aria-label="Instagram">Instagram</a>{% endif %}
+                    {% if site.facebook_url %}<a href="{{ site.facebook_url }}" target="_blank" rel="noopener" aria-label="Facebook">Facebook</a>{% endif %}
+                    {% if site.tiktok_url %}<a href="{{ site.tiktok_url }}" target="_blank" rel="noopener" aria-label="TikTok">TikTok</a>{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>{{ site.copyright_text }}</p>
+            <div><a href="#">Общи условия</a><a href="#">Поверителност</a></div>
+        </div>
+    </footer>
+
+    <div class="cart-overlay" aria-hidden="true"></div>
+    <aside class="cart-drawer" aria-label="Количка" aria-hidden="true">
+        {% csrf_token %}
+        <div class="cart-header">
+            <div><p>Вашата поръчка</p><h2>КОЛИЧКА</h2></div>
+            <button class="cart-close" type="button" aria-label="Затвори количката">×</button>
+        </div>
+        <div class="cart-items"><p class="cart-empty">Количката е празна.</p></div>
+        <div class="cart-footer">
+            <fieldset class="order-type">
+                <legend>Начин на получаване</legend>
+                <label><input type="radio" name="order-type" value="delivery" checked><span>Доставка до адрес</span></label>
+                <label><input type="radio" name="order-type" value="pickup"><span>Лично взимане</span></label>
+            </fieldset>
+            <div class="address-field">
+                <label>Име и фамилия<input type="text" name="customer-name" placeholder="Например Иван Иванов" autocomplete="name"></label>
+                <label>Телефон за връзка<input type="tel" name="customer-phone" placeholder="0879000000" autocomplete="tel" inputmode="numeric" pattern="0[0-9]{9}" minlength="10" maxlength="10" title="Въведете точно 10 цифри, започващи с 0."></label>
+                <label>Адрес за доставка<input type="text" name="address" placeholder="Улица, номер, град" autocomplete="street-address"></label>
+                <p class="confirmation-note">КартофЪ ще се свърже с вас на посочения телефон за потвърждение на поръчката.</p>
+            </div>
+            <div class="pickup-field" hidden>
+                <label>Име и фамилия<input type="text" name="pickup-customer-name" placeholder="Например Иван Иванов" autocomplete="name"></label>
+                <label>Телефон за връзка<input type="tel" name="pickup-customer-phone" placeholder="0879000000" autocomplete="tel" inputmode="numeric" pattern="0[0-9]{9}" minlength="10" maxlength="10" title="Въведете точно 10 цифри, започващи с 0."></label>
+                <label>Обект за взимане
+                    <select name="pickup-location">
+                        <option>ул. „Цар Иван Асен II“ №95</option>
+                        <option>бул. „България“ №60</option>
+                    </select>
+                </label>
+                <div class="pickup-status">
+                    <span>Очакване за потвърждение</span>
+                    <strong>Служителят ще определи времето за готовност според количеството поръчка.</strong>
+                </div>
+            </div>
+            <div class="cart-total"><span>Общо</span><strong>0.00 €</strong></div>
+            <button class="checkout-button" type="button" disabled>Поръчай сега</button>
+        </div>
+    </aside>
+
+    <div class="order-success-overlay" aria-hidden="true"></div>
+    <section class="order-success-modal" role="dialog" aria-modal="true" aria-labelledby="order-success-title" aria-hidden="true">
+        <button class="order-success-close" type="button" aria-label="Затвори">×</button>
+        <div class="order-success-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+                <path d="M5 12.5l4.2 4.2L19 7"></path>
+            </svg>
+        </div>
+        <p class="order-success-eyebrow">Поръчката е приета</p>
+        <h2 id="order-success-title">Благодарим!</h2>
+        <p class="order-success-number">Поръчка №<strong></strong></p>
+        <div class="order-success-details"></div>
+        <p class="order-notification-status" role="status"></p>
+        <button class="order-success-button" type="button">Към менюто</button>
+    </section>
+
+    <script src="{% static 'js/main.js' %}?v=4"></script>
+</body>
+</html>

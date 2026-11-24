@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 220">
+  <defs>
+    <linearGradient id="b" x2="1" y2="1"><stop stop-color="#f59e0b"/><stop offset="1" stop-color="#dc2626"/></linearGradient>
+    <radialGradient id="p" cx=".35" cy=".25"><stop stop-color="#d59a55"/><stop offset=".7" stop-color="#a85e2d"/><stop offset="1" stop-color="#70401f"/></radialGradient>
+  </defs>
+  <rect width="900" height="220" fill="#f4ead7"/>
+  <ellipse cx="450" cy="188" rx="270" ry="22" fill="#7b4e2f" opacity=".18"/>
+  <g transform="translate(235 15) rotate(-5)">
+    <path d="M68 76C89 14 245-8 341 43c94 50 100 137 24 178-84 45-230 20-285-42C47 153 55 108 68 76z" fill="url(#p)"/>
+    <path d="M128 91c47-51 139-57 208-17 55 32 33 98-28 117-78 24-196-18-180-100z" fill="#f2d79d"/>
+    <path d="M150 103c49-32 133-27 178 7-19 43-64 62-112 50-42-10-58-30-66-57z" fill="url(#b)"/>
+    <g fill="#812d20"><rect x="173" y="99" width="82" height="20" rx="9" transform="rotate(11 173 99)"/><rect x="250" y="137" width="75" height="18" rx="8" transform="rotate(-9 250 137)"/></g>
+    <g fill="#ffe168"><circle cx="181" cy="145" r="9"/><circle cx="223" cy="119" r="9"/><circle cx="282" cy="145" r="9"/><circle cx="308" cy="108" r="9"/></g>
+  </g>
+</svg>

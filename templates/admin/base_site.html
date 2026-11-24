@@ -1,0 +1,21 @@
+{% extends "admin/base.html" %}
+{% load static i18n %}
+
+{% block title %}КартофЪ | Админ панел{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/custom.css' %}">
+{% endblock %}
+
+{% block branding %}
+<div class="kartof-brand">
+    <span class="kartof-brand-mark">К</span>
+    <div>
+        <strong>КартофЪ</strong>
+        <small>АДМИН ПАНЕЛ · АСЕНОВГРАД</small>
+    </div>
+</div>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
