@@ -6,7 +6,44 @@ const cartOverlay = document.querySelector(".cart-overlay");
 const cartItems = document.querySelector(".cart-items");
 const cartTotal = document.querySelector(".cart-total strong");
 const checkoutButton = document.querySelector(".checkout-button");
+const noticeModal = document.querySelector(".notice-modal");
+const noticeOverlay = document.querySelector(".notice-overlay");
 let cart = [];
+let noticeReturnFocus = null;
+
+function parsePrice(value, emptyValue = null) {
+    const normalized = String(value ?? "").trim().replace(",", ".");
+    if (!normalized) return emptyValue;
+    if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
+    const price = Number(normalized);
+    return Number.isFinite(price) ? price : null;
+}
+
+function showNotice(message, title = "Обърнете внимание") {
+    noticeReturnFocus = document.activeElement;
+    noticeModal.querySelector("h2").textContent = title;
+    noticeModal.querySelector(".notice-message").textContent = message;
+    noticeModal.classList.add("open");
+    noticeOverlay.classList.add("open");
+    noticeModal.setAttribute("aria-hidden", "false");
+    noticeOverlay.setAttribute("aria-hidden", "false");
+    noticeModal.querySelector(".notice-button").focus();
+}
+
+function closeNotice() {
+    noticeModal.classList.remove("open");
+    noticeOverlay.classList.remove("open");
+    noticeModal.setAttribute("aria-hidden", "true");
+    noticeOverlay.setAttribute("aria-hidden", "true");
+    if (noticeReturnFocus instanceof HTMLElement) noticeReturnFocus.focus();
+}
+
+noticeModal.querySelector(".notice-close").addEventListener("click", closeNotice);
+noticeModal.querySelector(".notice-button").addEventListener("click", closeNotice);
+noticeOverlay.addEventListener("click", closeNotice);
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && noticeModal.classList.contains("open")) closeNotice();
+});
 
 
 const menuToggle = document.querySelector(".menu-toggle");
@@ -34,12 +71,6 @@ document.querySelectorAll(".menu-card").forEach((card) => {
     image.appendChild(badge);
 });
 
-function updateEstimatedReadyTime(itemCount) {
-    const status = document.querySelector(".pickup-status strong");
-    if (!status || itemCount === 0) return;
-    status.textContent = `${itemCount} продукта — служителят ще зададе точен срок според натоварването на кухнята.`;
-}
-
 function openCart() {
     cartDrawer.classList.add("open");
     cartOverlay.classList.add("open");
@@ -58,25 +89,56 @@ function renderCart() {
     const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
     count.textContent = itemCount;
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    cartTotal.textContent = `${total.toFixed(2)} €`;
-    checkoutButton.disabled = cart.length === 0;
-    updateEstimatedReadyTime(itemCount);
+    cartTotal.textContent = Number.isFinite(total) ? `${total.toFixed(2)} €` : "—";
+    checkoutButton.disabled = cart.length === 0 || !Number.isFinite(total);
 
+    cartItems.replaceChildren();
     if (!cart.length) {
-        cartItems.innerHTML = '<p class="cart-empty">Количката е празна.</p>';
+        const emptyMessage = document.createElement("p");
+        emptyMessage.className = "cart-empty";
+        emptyMessage.textContent = "Количката е празна.";
+        cartItems.appendChild(emptyMessage);
         return;
     }
 
-    cartItems.innerHTML = cart.map((item, index) => `
-        <div class="cart-item">
-            <div><strong>${item.name}</strong><span>${item.price > 0 ? item.price.toFixed(2) + " €" : "По меню"}</span></div>
-            <div class="quantity-controls">
-                <button type="button" data-action="minus" data-index="${index}" aria-label="Премахни едно">−</button>
-                <span>${item.quantity}</span>
-                <button type="button" data-action="plus" data-index="${index}" aria-label="Добави едно">+</button>
-            </div>
-        </div>
-    `).join("");
+    cart.forEach((item, index) => {
+        const row = document.createElement("div");
+        row.className = "cart-item";
+        const image = document.createElement("img");
+        image.className = "cart-item-image";
+        image.src = item.imageUrl;
+        image.alt = item.name;
+        image.loading = "lazy";
+        const description = document.createElement("div");
+        description.className = "cart-item-description";
+        const name = document.createElement("strong");
+        name.textContent = item.name;
+        const price = document.createElement("span");
+        price.textContent = Number.isFinite(item.price) && item.price > 0
+            ? `${item.price.toFixed(2)} €`
+            : "Цена невалидна";
+        description.append(name, price);
+
+        const controls = document.createElement("div");
+        controls.className = "quantity-controls";
+        const minus = document.createElement("button");
+        minus.type = "button";
+        minus.dataset.action = "minus";
+        minus.dataset.index = index;
+        minus.setAttribute("aria-label", "Премахни едно");
+        minus.textContent = "−";
+        const quantity = document.createElement("span");
+        quantity.textContent = item.quantity;
+        const plus = document.createElement("button");
+        plus.type = "button";
+        plus.dataset.action = "plus";
+        plus.dataset.index = index;
+        plus.setAttribute("aria-label", "Добави едно");
+        plus.textContent = "+";
+        controls.append(minus, quantity, plus);
+        row.append(image, description, controls);
+        cartItems.appendChild(row);
+    });
 }
 
 tabs.forEach((tab) => {
@@ -93,14 +155,30 @@ tabs.forEach((tab) => {
 document.querySelectorAll(".add-button").forEach((button) => {
     button.addEventListener("click", () => {
         const name = button.dataset.name;
-        const price = Number(button.dataset.price);
-        if (price === 0) {
-            alert("Цената и наличните варианти ще бъдат потвърдени от КартофЪ при поръчката.");
+        const price = parsePrice(button.dataset.price);
+        const productId = Number(button.dataset.productId);
+        if (!Number.isInteger(productId) || productId <= 0) {
+            showNotice("Този продукт все още не е наличен за онлайн поръчка.", "Продуктът не е наличен");
             return;
         }
-        const existing = cart.find((item) => item.name === name);
+        if (price === null) {
+            showNotice("Цената на продукта е невалидна. Моля, свържете се с нас.", "Проблем с цената");
+            return;
+        }
+        if (price === 0) {
+            showNotice("Цената и наличните варианти ще бъдат потвърдени от КартофЪ при поръчката.", "Цената се потвърждава");
+            return;
+        }
+        const existing = cart.find((item) => item.type === "product" && item.productId === productId);
         if (existing) existing.quantity += 1;
-        else cart.push({ name, price, quantity: 1 });
+        else cart.push({
+            type: "product",
+            productId,
+            name,
+            price,
+            imageUrl: button.dataset.imageUrl,
+            quantity: 1,
+        });
         renderCart();
         button.textContent = "✓";
         button.classList.add("added");
@@ -115,20 +193,35 @@ function getBuilderSelection() {
     const size = document.querySelector('input[name="size"]:checked');
     const base = document.querySelector('input[name="base"]:checked');
     const toppings = [...document.querySelectorAll(".topping-options input:checked")];
-    let price = Number(size.dataset.price) + Number(base.dataset.price);
-    toppings.forEach((topping) => price += Number(topping.dataset.price));
+    if (!size || !base) return null;
+    const sizePrice = parsePrice(size.dataset.price);
+    const basePrice = parsePrice(base.dataset.price);
+    const toppingPrices = toppings.map((topping) => parsePrice(topping.dataset.price, 0));
+    if (sizePrice === null || basePrice === null || toppingPrices.some((price) => price === null)) return null;
+    const price = sizePrice + basePrice + toppingPrices.reduce((sum, toppingPrice) => sum + toppingPrice, 0);
 
     const names = toppings.map((topping) => topping.value);
     return {
         name: `КартофЪ по избор — ${size.value}`,
-        description: `${base.value}${names.length ? `; ${names.join(", ")}` : ""}`,
+        description: `${base.value === "classic" ? "класически печен картоф" : "голям печен картоф"}${names.length ? `; ${names.join(", ")}` : ""}`,
         price,
+        sizeId: Number(size.dataset.sizeId),
+        base: base.value,
+        toppingIds: toppings.map((topping) => Number(topping.dataset.toppingId)),
     };
 }
 
 function updateBuilder() {
-    const limit = Number(document.querySelector('input[name="size"]:checked').dataset.count);
+    const size = document.querySelector('input[name="size"]:checked');
     const toppings = [...document.querySelectorAll(".topping-options input")];
+    const addButton = document.querySelector(".builder-add");
+    if (!size) {
+        document.querySelector(".builder-price").textContent = "—";
+        addButton.disabled = true;
+        toppings.forEach((item) => { item.disabled = true; });
+        return;
+    }
+    const limit = Number(size.dataset.count);
     let checkedCount = toppings.filter((item) => item.checked).length;
     while (checkedCount > limit) {
         const lastChecked = [...toppings].reverse().find((item) => item.checked);
@@ -141,26 +234,62 @@ function updateBuilder() {
     });
 
     const selection = getBuilderSelection();
+    if (!selection) {
+        document.querySelector(".builder-price").textContent = "—";
+        addButton.disabled = true;
+        return;
+    }
     document.querySelector(".builder-price").textContent = `${selection.price.toFixed(2)} €`;
+    addButton.disabled = toppings.length < limit;
 
 }
 
 document.querySelectorAll(".builder-options input").forEach((input) => {
     input.addEventListener("change", updateBuilder);
 });
+updateBuilder();
 
 document.querySelector(".builder-add").addEventListener("click", () => {
-    const limit = Number(document.querySelector('input[name="size"]:checked').dataset.count);
+    const size = document.querySelector('input[name="size"]:checked');
+    if (!size) {
+        showNotice("В момента няма налични размери за персонализиран картоф.", "Картофът по избор не е наличен");
+        return;
+    }
+    const limit = Number(size.dataset.count);
     const checkedCount = document.querySelectorAll(".topping-options input:checked").length;
     if (checkedCount !== limit) {
-        alert(`Изберете точно ${limit} добавки за този картоф.`);
+        const difference = Math.abs(limit - checkedCount);
+        const message = checkedCount < limit
+            ? `Избрали сте ${checkedCount} от нужните ${limit} добавки. Изберете още ${difference}, за да продължите.`
+            : `Избрали сте ${checkedCount} добавки, а за този размер са нужни точно ${limit}. Премахнете ${difference}.`;
+        showNotice(message, "Завършете избора си");
         return;
     }
     const selection = getBuilderSelection();
+    if (!selection || !selection.sizeId || selection.toppingIds.some((id) => !id)) {
+        showNotice("Изборът не е валиден. Обновете страницата и опитайте отново.", "Невалиден избор");
+        return;
+    }
     const name = `${selection.name} (${selection.description})`;
-    const existing = cart.find((item) => item.name === name);
+    const imageUrl = document.querySelector(".builder-options").dataset.builderImageUrl;
+    const existing = cart.find((item) =>
+        item.type === "builder"
+        && item.sizeId === selection.sizeId
+        && item.base === selection.base
+        && item.toppingIds.length === selection.toppingIds.length
+        && item.toppingIds.every((id) => selection.toppingIds.includes(id))
+    );
     if (existing) existing.quantity += 1;
-    else cart.push({ name, price: selection.price, quantity: 1 });
+    else cart.push({
+        type: "builder",
+        sizeId: selection.sizeId,
+        base: selection.base,
+        toppingIds: selection.toppingIds,
+        name,
+        price: selection.price,
+        imageUrl,
+        quantity: 1,
+    });
     renderCart();
     openCart();
 });
@@ -194,7 +323,6 @@ document.querySelectorAll('input[name="order-type"]').forEach((radio) => {
         const delivery = radio.value === "delivery";
         document.querySelector(".address-field").hidden = !delivery;
         document.querySelector(".pickup-field").hidden = delivery;
-        updateEstimatedReadyTime(cart.reduce((sum, item) => sum + item.quantity, 0));
     });
 });
 
@@ -213,20 +341,22 @@ function showOrderSuccess(orderId, orderType, payload, result) {
     const details = modal.querySelector(".order-success-details");
 
     modal.querySelector(".order-success-number strong").textContent = orderId;
+    const appendDetail = (value, strong = false) => {
+        const element = document.createElement(strong ? "strong" : "span");
+        element.textContent = value;
+        details.appendChild(element);
+    };
+    details.replaceChildren();
     if (orderType === "delivery") {
-        details.innerHTML = `
-            <strong>Доставка до адрес</strong>
-            <span>${payload.address}</span>
-            <span>КартофЪ ще се свърже с <strong>${payload.customerPhone}</strong> за потвърждение.</span>
-        `;
+        appendDetail("Доставка до адрес", true);
+        appendDetail(payload.address);
+        appendDetail(`КартофЪ ще се свърже с ${payload.customerPhone} за потвърждение.`);
     } else {
-        details.innerHTML = `
-            <strong>Лично взимане</strong>
-            <span>${payload.pickupLocation}</span>
-            <span>Клиент: <strong>${payload.customerName}</strong></span>
-            <span>Телефон: <strong>${payload.customerPhone}</strong></span>
-            <span>Ще получите потвърждение за точното време за готовност.</span>
-        `;
+        appendDetail("Лично взимане", true);
+        appendDetail(payload.pickupLocation);
+        appendDetail(`Клиент: ${payload.customerName}`);
+        appendDetail(`Телефон: ${payload.customerPhone}`);
+        appendDetail("Ще получите потвърждение за точното време за готовност.");
     }
     const notificationStatus = modal.querySelector(".order-notification-status");
     notificationStatus.textContent = result.notificationSent
@@ -264,7 +394,7 @@ checkoutButton.addEventListener("click", async () => {
             return;
         }
         if (!/^0\d{9}$/.test(phone)) {
-            alert("Въведете телефонен номер с точно 10 цифри, започващ с 0.");
+            showNotice("Въведете телефонен номер с точно 10 цифри, започващ с 0.", "Проверете телефонния номер");
             document.querySelector('[name="customer-phone"]').focus();
             return;
         }
@@ -277,7 +407,9 @@ checkoutButton.addEventListener("click", async () => {
             customerName: name,
             customerPhone: phone,
             address,
-            items: cart,
+            items: cart.map(({ type, productId, sizeId, base, toppingIds, quantity }) => ({
+                type, productId, sizeId, base, toppingIds, quantity,
+            })),
         };
     } else {
         const name = document.querySelector('[name="pickup-customer-name"]').value.trim();
@@ -292,7 +424,7 @@ checkoutButton.addEventListener("click", async () => {
             return;
         }
         if (!/^0\d{9}$/.test(phone)) {
-            alert("Въведете телефонен номер с точно 10 цифри, започващ с 0.");
+            showNotice("Въведете телефонен номер с точно 10 цифри, започващ с 0.", "Проверете телефонния номер");
             document.querySelector('[name="pickup-customer-phone"]').focus();
             return;
         }
@@ -301,7 +433,9 @@ checkoutButton.addEventListener("click", async () => {
             customerName: name,
             customerPhone: phone,
             pickupLocation: location,
-            items: cart,
+            items: cart.map(({ type, productId, sizeId, base, toppingIds, quantity }) => ({
+                type, productId, sizeId, base, toppingIds, quantity,
+            })),
         };
     }
 
@@ -332,8 +466,8 @@ checkoutButton.addEventListener("click", async () => {
         closeCart();
         showOrderSuccess(result.orderId, orderType, payload, result);
     } catch (error) {
-        alert(error instanceof TypeError
+        showNotice(error instanceof TypeError
             ? "Неуспешна връзка със сървъра. Проверете дали поръчката е записана, преди да опитате отново."
-            : error.message);
+            : error.message, "Поръчката не беше изпратена");
     }
 });

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=2">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=5">
 </head>
 <body>
     <header class="header">
@@ -80,8 +80,10 @@
                                 <strong>По меню</strong>
                             {% endif %}
                             <button class="add-button" type="button"
+                                    data-product-id="{{ product.id }}"
                                     data-name="{{ product.name }}"
                                     data-price="{% if product.price %}{{ product.price }}{% else %}0{% endif %}"
+                                    data-image-url="{% if product.image %}{{ product.image.url }}{% else %}{% static 'images/potato-loaded.svg' %}{% endif %}"
                                     aria-label="Добави {{ product.name }}">+</button>
                         </div>
                     </div>
@@ -208,12 +210,12 @@
             </div>
 
             <div class="potato-builder">
-                <form class="builder-options">
+                <form class="builder-options" data-builder-image-url="{% static 'images/potato-loaded.svg' %}">
                     <fieldset>
                         <legend><span>01</span> Избери брой добавки</legend>
                         <div class="option-grid size-options">
                             {% for size in builder_sizes %}
-                            <label><input type="radio" name="size" value="{{ size.name }}" data-count="{{ size.topping_count }}" data-price="{{ size.price }}" {% if forloop.first %}checked{% endif %}><span><strong>{{ size.name }}</strong><small>{{ size.price|floatformat:2 }} €</small></span></label>
+                            <label><input type="radio" name="size" value="{{ size.name }}" data-size-id="{{ size.id }}" data-count="{{ size.topping_count }}" data-price="{{ size.price }}" {% if forloop.first %}checked{% endif %}><span><strong>{{ size.name }}</strong><small>{{ size.price|floatformat:2 }} €</small></span></label>
                             {% empty %}
                             <p>Все още няма добавени размери в админ панела.</p>
                             {% endfor %}
@@ -223,8 +225,8 @@
                     <fieldset>
                         <legend><span>02</span> Избери основа за картофа</legend>
                         <div class="option-grid base-options">
-                            <label><input type="radio" name="base" value="класически печен картоф" data-price="0" checked><span><strong>Класически печен</strong><small>Мек отвътре</small></span></label>
-                            <label><input type="radio" name="base" value="голям печен картоф" data-price="1.50"><span><strong>Голям печен</strong><small>+1.50 €</small></span></label>
+                            <label><input type="radio" name="base" value="classic" data-price="0" checked><span><strong>Класически печен</strong><small>Мек отвътре</small></span></label>
+                            <label><input type="radio" name="base" value="large" data-price="1.50"><span><strong>Голям печен</strong><small>+1.50 €</small></span></label>
                         </div>
                     </fieldset>
 
@@ -232,7 +234,7 @@
                         <legend><span>03</span> Добави пълнежи</legend>
                         <div class="option-grid topping-options">
                             {% for topping in builder_toppings %}
-                            <label><input type="checkbox" value="{{ topping.name }}" data-price="{{ topping.extra_price }}"><span><strong>{{ topping.name }}</strong>{% if topping.extra_price %}<small>+{{ topping.extra_price|floatformat:2 }} €</small>{% endif %}</span></label>
+                            <label><input type="checkbox" value="{{ topping.name }}" data-topping-id="{{ topping.id }}" data-price="{{ topping.extra_price }}"><span><strong>{{ topping.name }}</strong>{% if topping.extra_price %}<small>+{{ topping.extra_price|floatformat:2 }} €</small>{% endif %}</span></label>
                             {% empty %}
                             <p>Все още няма добавени пълнежи в админ панела.</p>
                             {% endfor %}
@@ -327,10 +329,6 @@
                         <option>бул. „България“ №60</option>
                     </select>
                 </label>
-                <div class="pickup-status">
-                    <span>Очакване за потвърждение</span>
-                    <strong>Служителят ще определи времето за готовност според количеството поръчка.</strong>
-                </div>
             </div>
             <div class="cart-total"><span>Общо</span><strong>0.00 €</strong></div>
             <button class="checkout-button" type="button" disabled>Поръчай сега</button>
@@ -353,6 +351,16 @@
         <button class="order-success-button" type="button">Към менюто</button>
     </section>
 
-    <script src="{% static 'js/main.js' %}?v=4"></script>
+    <div class="notice-overlay" aria-hidden="true"></div>
+    <section class="notice-modal" role="alertdialog" aria-modal="true" aria-labelledby="notice-title" aria-describedby="notice-message" aria-hidden="true">
+        <button class="notice-close" type="button" aria-label="Затвори известието">×</button>
+        <div class="notice-icon" aria-hidden="true">!</div>
+        <p class="notice-eyebrow">КартофЪ</p>
+        <h2 id="notice-title">Обърнете внимание</h2>
+        <p id="notice-message" class="notice-message"></p>
+        <button class="notice-button" type="button">Разбрах</button>
+    </section>
+
+    <script src="{% static 'js/main.js' %}?v=10"></script>
 </body>
 </html>

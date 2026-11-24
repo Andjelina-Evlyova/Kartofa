@@ -1,5 +1,8 @@
+from decimal import Decimal
+
 from django.db import models
-from django.core.validators import MinValueValidator
+from django.db import transaction
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 
 class SiteSettings(models.Model):
@@ -53,8 +56,16 @@ class SiteSettings(models.Model):
 
 class BuilderSize(models.Model):
     name = models.CharField("Име", max_length=80)
-    topping_count = models.PositiveIntegerField("Брой добавки", validators=[MinValueValidator(1)])
-    price = models.DecimalField("Цена (€)", max_digits=8, decimal_places=2)
+    topping_count = models.PositiveIntegerField(
+        "Брой добавки",
+        validators=[MinValueValidator(1), MaxValueValidator(20)],
+    )
+    price = models.DecimalField(
+        "Цена (€)",
+        max_digits=8,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
     sort_order = models.PositiveIntegerField("Ред", default=0)
     is_active = models.BooleanField("Активен", default=True)
 
@@ -69,7 +80,13 @@ class BuilderSize(models.Model):
 
 class BuilderTopping(models.Model):
     name = models.CharField("Добавка", max_length=80)
-    extra_price = models.DecimalField("Допълнителна цена (€)", max_digits=8, decimal_places=2, default=0)
+    extra_price = models.DecimalField(
+        "Допълнителна цена (€)",
+        max_digits=8,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
     sort_order = models.PositiveIntegerField("Ред", default=0)
     is_active = models.BooleanField("Активна", default=True)
 
@@ -108,7 +125,14 @@ class Product(models.Model):
         blank=True,
     )
     description = models.TextField("Описание", blank=True)
-    price = models.DecimalField("Цена (€)", max_digits=8, decimal_places=2, null=True, blank=True)
+    price = models.DecimalField(
+        "Цена (€)",
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
     image = models.ImageField("Снимка на продукта", upload_to="products/", blank=True)
     is_available = models.BooleanField("Наличен", default=True)
     is_featured = models.BooleanField("Избран продукт", default=False)
@@ -123,16 +147,22 @@ class Product(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
+        previous_image_name = ""
         if self.pk:
             previous = type(self).objects.filter(pk=self.pk).only("image").first()
             if previous and previous.image and previous.image != self.image:
-                previous.image.delete(save=False)
+                previous_image_name = previous.image.name
         super().save(*args, **kwargs)
+        if previous_image_name:
+            storage = self.image.storage
+            transaction.on_commit(lambda: storage.delete(previous_image_name))
 
     def delete(self, *args, **kwargs):
-        if self.image:
-            self.image.delete(save=False)
+        image_name = self.image.name if self.image else ""
+        storage = self.image.storage
         super().delete(*args, **kwargs)
+        if image_name:
+            transaction.on_commit(lambda: storage.delete(image_name))
 
 class Order(models.Model):
     DELIVERY = "delivery"

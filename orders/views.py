@@ -1,12 +1,14 @@
 import json
 import logging
 import re
+import smtplib
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 import urllib.error
 
 from django.conf import settings
+from django.core.mail import BadHeaderError
 from django.core.mail import send_mail
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -14,6 +16,12 @@ from django.shortcuts import render
 from .models import BuilderSize, BuilderTopping, MenuCollection, Order, Product, SiteSettings
 
 logger = logging.getLogger(__name__)
+ORDER_NOTIFICATION_EMAIL = "aevlyovva@gmail.com"
+MAX_ORDER_ITEMS = 30
+MAX_ITEM_QUANTITY = 50
+MAX_ORDER_QUANTITY = 100
+MAX_ORDER_TOTAL = Decimal("999999.99")
+LARGE_BASE_PRICE = Decimal("1.50")
 
 
 def build_order_message(order):
@@ -44,10 +52,7 @@ def build_order_message(order):
 
 
 def send_order_notification(order):
-    site = SiteSettings.objects.first()
-    recipient = site.order_notification_email.strip() if site and site.order_notification_email else ""
-    if not recipient:
-        return False
+    recipient = ORDER_NOTIFICATION_EMAIL
 
     subject = f"Нова поръчка #{order.id}"
     message = build_order_message(order)
@@ -60,7 +65,7 @@ def send_order_notification(order):
             [recipient],
             fail_silently=False,
         ) == 1
-    except Exception:
+    except (BadHeaderError, OSError, smtplib.SMTPException):
         logger.exception("Failed to send notification email for order #%s", order.id)
         return False
 
@@ -141,11 +146,12 @@ def send_whatsapp_notification(order):
 
 
 def home(request):
-    products = Product.objects.filter(is_available=True)
+    products = Product.objects.filter(
+        is_available=True,
+        collection__is_active=True,
+    ).select_related("collection")
     collections = MenuCollection.objects.filter(is_active=True).prefetch_related("products")
-    settings_obj = SiteSettings.objects.first()
-    if settings_obj is None:
-        settings_obj = SiteSettings.objects.create()
+    settings_obj, _ = SiteSettings.objects.get_or_create(pk=1)
     return render(request, "index.html", {
         "products": products,
         "site": settings_obj,
@@ -155,39 +161,153 @@ def home(request):
     })
 
 
+def parse_positive_int(value):
+    if isinstance(value, bool):
+        raise ValueError
+    parsed = int(value)
+    if parsed <= 0 or str(parsed) != str(value):
+        raise ValueError
+    return parsed
+
+
+def build_order_items(raw_items):
+    if not isinstance(raw_items, list) or not raw_items or len(raw_items) > MAX_ORDER_ITEMS:
+        raise ValueError("Невалидни продукти в поръчката.")
+
+    normalized_items = []
+    total = Decimal("0.00")
+    total_quantity = 0
+
+    for raw_item in raw_items:
+        if not isinstance(raw_item, dict):
+            raise ValueError("Невалидни продукти в поръчката.")
+        quantity = parse_positive_int(raw_item.get("quantity"))
+        if quantity > MAX_ITEM_QUANTITY:
+            raise ValueError("Количеството на продукт е прекалено голямо.")
+        total_quantity += quantity
+        if total_quantity > MAX_ORDER_QUANTITY:
+            raise ValueError("Общото количество в поръчката е прекалено голямо.")
+
+        item_type = raw_item.get("type")
+        if item_type == "product":
+            product_id = parse_positive_int(raw_item.get("productId"))
+            product = Product.objects.filter(
+                pk=product_id,
+                is_available=True,
+                collection__is_active=True,
+            ).first()
+            if product is None or product.price is None or product.price <= 0:
+                raise ValueError("Един от избраните продукти вече не е наличен.")
+            name = product.name
+            price = product.price
+        elif item_type == "builder":
+            size_id = parse_positive_int(raw_item.get("sizeId"))
+            size = BuilderSize.objects.filter(pk=size_id, is_active=True).first()
+            base_type = raw_item.get("base")
+            topping_ids = raw_item.get("toppingIds")
+            if size is None or size.price <= 0 or base_type not in ("classic", "large"):
+                raise ValueError("Невалиден избор за персонализиран картоф.")
+            if (
+                not isinstance(topping_ids, list)
+                or len(topping_ids) > 20
+                or len(topping_ids) != size.topping_count
+                or len(set(topping_ids)) != len(topping_ids)
+            ):
+                raise ValueError("Изберете точния брой различни добавки за картофа.")
+            parsed_topping_ids = [parse_positive_int(value) for value in topping_ids]
+            toppings = list(
+                BuilderTopping.objects.filter(
+                    pk__in=parsed_topping_ids,
+                    is_active=True,
+                ).order_by("sort_order", "name")
+            )
+            if len(toppings) != size.topping_count:
+                raise ValueError("Една или повече избрани добавки вече не са налични.")
+            if any(topping.extra_price < 0 for topping in toppings):
+                raise ValueError("Цената на една или повече добавки е невалидна.")
+            base_name = "класически печен картоф" if base_type == "classic" else "голям печен картоф"
+            price = size.price + (LARGE_BASE_PRICE if base_type == "large" else Decimal("0.00"))
+            price += sum((topping.extra_price for topping in toppings), Decimal("0.00"))
+            name = f"Картоф по избор — {size.name}, {base_name}; добавки: {', '.join(topping.name for topping in toppings)}"
+        else:
+            raise ValueError("Невалиден тип продукт.")
+
+        line_total = price * quantity
+        total += line_total
+        if total > MAX_ORDER_TOTAL:
+            raise ValueError("Общата сума на поръчката е прекалено голяма.")
+        normalized_items.append({
+            "name": name,
+            "price": str(price.quantize(Decimal("0.01"))),
+            "quantity": quantity,
+        })
+
+    return normalized_items, total.quantize(Decimal("0.01"))
+
+
 @require_POST
 def create_order(request):
+    if len(request.body) > 65536:
+        return JsonResponse({"error": "Заявката е прекалено голяма."}, status=413)
+
     try:
         data = json.loads(request.body)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({"error": "Невалидни данни."}, status=400)
 
     if not isinstance(data, dict):
         return JsonResponse({"error": "Невалидни данни."}, status=400)
-
     order_type = data.get("orderType")
-    items = data.get("items") or []
-    if order_type not in ("delivery", "pickup") or not isinstance(items, list) or not items:
+    if order_type not in (Order.DELIVERY, Order.PICKUP):
         return JsonResponse({"error": "Невалидна поръчка."}, status=400)
 
     phone_value = data.get("customerPhone", "")
     if not isinstance(phone_value, str):
         return JsonResponse({"error": "Въведете телефонен номер с точно 10 цифри, започващ с 0."}, status=400)
-    customer_phone = re.sub(r"\D", "", phone_value)
-    if not re.fullmatch(r"0\d{9}", customer_phone):
+    customer_phone = re.sub(r"[^0-9]", "", phone_value)
+    if not re.fullmatch(r"0[0-9]{9}", customer_phone):
         return JsonResponse({"error": "Въведете телефонен номер с точно 10 цифри, започващ с 0."}, status=400)
 
+    customer_name = data.get("customerName")
+    if not isinstance(customer_name, str) or not customer_name.strip() or len(customer_name.strip()) > 120:
+        return JsonResponse({"error": "Въведете име (до 120 символа)."}, status=400)
+    customer_name = customer_name.strip()
+
+    site, _ = SiteSettings.objects.get_or_create(pk=1)
+    if order_type == Order.DELIVERY:
+        address = data.get("address")
+        if not isinstance(address, str) or not address.strip() or len(address.strip()) > 255:
+            return JsonResponse({"error": "Въведете адрес за доставка."}, status=400)
+        delivery_address = address.strip()
+        pickup_location = ""
+    else:
+        pickup_location = data.get("pickupLocation")
+        valid_locations = {
+            location.strip()
+            for location in (
+                site.address if site else "",
+                site.second_address if site else "",
+            )
+            if location and location.strip()
+        }
+        if not isinstance(pickup_location, str) or pickup_location not in valid_locations:
+            return JsonResponse({"error": "Изберете валиден обект за взимане."}, status=400)
+        delivery_address = ""
+
+    raw_items = data.get("items")
+    if not isinstance(raw_items, list):
+        return JsonResponse({"error": "Невалидни продукти в поръчката."}, status=400)
     try:
-        total = sum(Decimal(str(item["price"])) * int(item["quantity"]) for item in items)
-    except (KeyError, InvalidOperation, TypeError, ValueError):
-        return JsonResponse({"error": "Невалидна поръчка."}, status=400)
+        items, total = build_order_items(raw_items)
+    except (InvalidOperation, TypeError, ValueError, OverflowError):
+        return JsonResponse({"error": "Невалидни продукти или количества в поръчката."}, status=400)
 
     order = Order.objects.create(
         order_type=order_type,
-        customer_name=data.get("customerName", "").strip(),
+        customer_name=customer_name,
         customer_phone=customer_phone,
-        delivery_address=data.get("address", "").strip(),
-        pickup_location=data.get("pickupLocation", "").strip(),
+        delivery_address=delivery_address,
+        pickup_location=pickup_location,
         items=items,
         total=total,
     )
